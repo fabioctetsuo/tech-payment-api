@@ -1,0 +1,37 @@
+services:
+  # Payment API
+  payment-api:
+    container_name: tech-payment-api
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - '3002:3002'
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - MONGODB_URI=mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-password}@payment-mongodb:27017/payment_db?authSource=admin
+      - MOCK_PAYMENT_SERVICE_URL=http://host.docker.internal:4000
+      - ORDER_API_URL=http://host.docker.internal:3000
+    depends_on:
+      - payment-mongodb
+    restart: unless-stopped
+
+  # MongoDB Database for Payment Service
+  payment-mongodb:
+    container_name: payment-mongodb
+    image: mongo:7.0
+    ports:
+      - '27017:27017'
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-password}
+      MONGO_INITDB_DATABASE: payment_db
+    volumes:
+      - payment_mongodb_data:/data/db
+    restart: unless-stopped
+
+volumes:
+  payment_mongodb_data: 
