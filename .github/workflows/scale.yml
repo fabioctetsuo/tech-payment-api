@@ -1,0 +1,67 @@
+name: Scale Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      namespace:
+        description: 'Kubernetes namespace'
+        required: true
+        default: 'payments-service'
+        type: string
+      replicas:
+        description: 'Number of replicas'
+        required: true
+        default: '2'
+        type: string
+      deployment:
+        description: 'Deployment name'
+        required: true
+        default: 'tech-payment-api'
+        type: string
+
+jobs:
+  scale:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+        aws-region: us-east-1
+        
+    - name: Update kube config
+      run: aws eks update-kubeconfig --region us-east-1 --name tech_challenge_cluster
+      
+    - name: Scale deployment
+      run: |
+        echo "Scaling deployment ${{ inputs.deployment }} to ${{ inputs.replicas }} replicas in namespace ${{ inputs.namespace }}"
+        
+        # Scale the deployment
+        kubectl scale deployment ${{ inputs.deployment }} --replicas=${{ inputs.replicas }} -n ${{ inputs.namespace }}
+        
+        # Wait for the scaling to complete
+        kubectl rollout status deployment/${{ inputs.deployment }} -n ${{ inputs.namespace }} --timeout=300s
+        
+        # Verify the scaling
+        echo "Verifying scaling..."
+        kubectl get pods -n ${{ inputs.namespace }}
+        
+    - name: Scale summary
+      run: |
+        echo "## 🔄 Scaling Complete!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Scaling Details:**" >> $GITHUB_STEP_SUMMARY
+        echo "- **Deployment:** ${{ inputs.deployment }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Namespace:** ${{ inputs.namespace }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **New Replicas:** ${{ inputs.replicas }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Current Status:**" >> $GITHUB_STEP_SUMMARY
+        echo "```bash" >> $GITHUB_STEP_SUMMARY
+        kubectl get pods -n ${{ inputs.namespace }} >> $GITHUB_STEP_SUMMARY
+        echo "```" >> $GITHUB_STEP_SUMMARY 

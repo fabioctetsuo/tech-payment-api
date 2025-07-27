@@ -18,7 +18,7 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
 
-  const port = process.env.PORT || 3002;
+  const port = process.env.PORT || 3003;
   await app.listen(port);
   console.log(`Payment API running on port ${port}`);
 }

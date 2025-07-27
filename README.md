@@ -8,7 +8,7 @@ Payment processing microservice for handling payment transactions.
 - Docker
 - Docker Compose
 
-### Deployment
+### Local Development
 ```bash
 # Full deployment (build, start, migrate, health check)
 ./deploy.sh
@@ -25,9 +25,6 @@ Payment processing microservice for handling payment transactions.
 # Start services
 docker-compose up -d
 
-# Run migrations
-docker-compose exec payment-api npx prisma migrate deploy
-
 # Check health
 curl http://localhost:3002/health
 ```
@@ -41,7 +38,6 @@ curl http://localhost:3002/health
 ./deploy.sh restart  # Restart services
 ./deploy.sh logs     # Show service logs
 ./deploy.sh build    # Build Docker image only
-./deploy.sh migrate  # Run database migrations only
 ./deploy.sh health   # Check service health only
 ```
 
@@ -50,12 +46,10 @@ curl http://localhost:3002/health
 - **API**: http://localhost:3002
 - **Health Check**: http://localhost:3002/health
 - **Swagger Docs**: http://localhost:3002/api
-- **Database**: localhost:5434
 
 ## 🗄️ Database
 
-- **Database**: `payment_db`
-- **Tables**: `pagamento`
+This service uses **MongoDB** for data persistence. The MongoDB connection string is provided via the `MONGODB_URI` environment variable.
 
 ## 📡 API Endpoints
 
@@ -69,10 +63,39 @@ curl http://localhost:3002/health
 ## 🔧 Environment Variables
 
 ```bash
-DATABASE_URL=postgresql://postgres:password@payment-postgres:5432/payment_db
-PAYMENT_WEBHOOK_URL=http://localhost:3003/webhook
+MONGODB_URI=mongodb://localhost:27017/payments
+MOCK_PAYMENT_SERVICE_URL=http://localhost:4000
 ORDER_API_URL=http://localhost:3000
 ```
+
+### External Service URLs
+
+The payment API automatically retrieves external service URLs from AWS load balancers during deployment:
+
+- **MOCK_PAYMENT_SERVICE_URL**: URL for the payment mock service (port 4000)
+- **ORDER_API_URL**: URL for the order API service (port 3000)
+
+These URLs are retrieved using `kubectl get svc` commands and stored in Kubernetes secrets for the application to use.
+
+#### URL Retrieval Logic
+
+The deployment process automatically:
+
+1. **Retrieves LoadBalancer hostnames** from AWS EKS services
+2. **Constructs full URLs** with appropriate ports
+3. **Falls back to internal URLs** if external IPs are not available
+4. **Stores URLs in Kubernetes secrets** for the application
+
+#### Manual URL Retrieval
+
+You can manually retrieve the external URLs using the provided script:
+
+```bash
+# From the tech-payment-api directory
+./scripts/get-external-urls.sh
+```
+
+This script will show you the current external URLs that would be used in deployment.
 
 ## 🔗 Webhook Integration
 
@@ -105,6 +128,86 @@ The payment-mock service sends webhook notifications to this endpoint when payme
 ### Integration with Order API
 When a payment is approved (status = "approved"), the webhook automatically calls the Order API to confirm the order by making a PUT request to `/pedidos/:id/confirmar`. This ensures that orders are automatically confirmed when payments are successful.
 
+## 🚀 CI/CD Deployment
+
+This service includes automated CI/CD deployment to AWS EKS using GitHub Actions.
+
+### GitHub Actions Workflows
+
+- **`ci-cd.yml`**: Automatic deployment on push to main branch
+- **`manual-deploy.yml`**: Manual deployment with custom parameters
+- **`scale.yml`**: Scale deployment up or down
+- **`rollback.yml`**: Rollback to previous deployment
+
+### Required GitHub Secrets
+
+Set these secrets in your GitHub repository:
+
+```bash
+# AWS Credentials
+AWS_ACCESS_KEY_ID=your-aws-access-key
+AWS_SECRET_ACCESS_KEY=your-aws-secret-key
+AWS_SESSION_TOKEN=your-aws-session-token
+
+# Docker Hub
+DOCKERHUB_USERNAME=your-dockerhub-username
+DOCKERHUB_ACCESS_TOKEN=your-dockerhub-access-token
+
+# Database
+MONGODB_URI=your-mongodb-connection-string
+```
+
+### Setup GitHub Secrets
+
+Use the provided script to set up GitHub secrets:
+
+```bash
+# Make script executable
+chmod +x scripts/set-github-secrets.sh
+
+# Run the setup script
+./scripts/set-github-secrets.sh
+```
+
+### Kubernetes Deployment
+
+The service is deployed to the `payments-service` namespace in AWS EKS.
+
+#### Manual Deployment
+
+```bash
+# Deploy using the provided script
+./k8s/deploy.sh -i username/tech-payment-api:latest
+
+# Deploy with custom parameters
+./k8s/deploy.sh -i username/tech-payment-api:latest -r 3 -e staging
+```
+
+#### Kubernetes Resources
+
+- **Namespace**: `payments-service`
+- **Deployment**: `tech-payment-api`
+- **Service**: `tech-payment-api-service`
+- **HPA**: `tech-payment-api-hpa`
+- **ConfigMap**: `tech-payment-api-config`
+- **Secret**: `tech-payment-api-secret`
+
+### Monitoring Kubernetes Deployment
+
+```bash
+# Check pod status
+kubectl get pods -n payments-service
+
+# View logs
+kubectl logs -f deployment/tech-payment-api -n payments-service
+
+# Check service status
+kubectl get services -n payments-service
+
+# Check HPA status
+kubectl get hpa -n payments-service
+```
+
 ## 🛠️ Development
 
 ### Local Development
@@ -115,26 +218,20 @@ npm install
 # Start in development mode
 npm run start:dev
 
-# Run migrations
-npm run migrate:dev
-
-# Open Prisma Studio
-npm run prisma:studio
+# Open MongoDB connection
+# Make sure MongoDB is running locally or update MONGODB_URI
 ```
 
 ### Database Management
 ```bash
-# Create migration
-npx prisma migrate dev --name migration_name
+# Connect to MongoDB
+mongosh "your-mongodb-connection-string"
 
-# Apply migrations
-npx prisma migrate deploy
+# View collections
+show collections
 
-# Reset database
-npx prisma migrate reset
-
-# View database
-npx prisma studio
+# Query payments
+db.pagamentos.find()
 ```
 
 ## 🧪 Testing
@@ -159,14 +256,14 @@ docker build -f Dockerfile.dev -t tech-payment-api:dev .
 
 ### Run Container
 ```bash
-docker run -p 3002:3002 tech-payment-api:dev
+docker run -p 3002:3002 -e MONGODB_URI="your-mongodb-uri" tech-payment-api:dev
 ```
 
 ## 🔍 Monitoring
 
 - **Health Check**: `/health`
 - **Logs**: `docker-compose logs -f payment-api`
-- **Database**: Connect to `localhost:5434` with `payment_db`
+- **Kubernetes**: `kubectl logs -f deployment/tech-payment-api -n payments-service`
 
 ## 🚨 Troubleshooting
 
@@ -175,24 +272,34 @@ docker run -p 3002:3002 tech-payment-api:dev
 # Check logs
 docker-compose logs payment-api
 
-# Check database connection
-docker-compose exec payment-postgres psql -U postgres -d payment_db
+# Check MongoDB connection
+# Verify MONGODB_URI is correct and accessible
 ```
 
-### Migration Issues
+### Kubernetes Deployment Issues
 ```bash
-# Reset database
-docker-compose exec payment-api npx prisma migrate reset
+# Check pod status
+kubectl get pods -n payments-service
 
-# Check migration status
-docker-compose exec payment-api npx prisma migrate status
+# Check pod logs
+kubectl logs <pod-name> -n payments-service
+
+# Check events
+kubectl get events -n payments-service --sort-by='.lastTimestamp'
+
+# Check secret
+kubectl get secret tech-payment-api-secret -n payments-service -o yaml
 ```
 
-### Port Conflicts
-If port 3002 or 5434 is already in use, modify the ports in `docker-compose.yml`:
-```yaml
-ports:
-  - '3003:3002'  # Change 3002 to 3003
+### MongoDB Connection Issues
+```bash
+# Verify MongoDB URI format
+mongodb://username:password@host:port/database
+
+# Test connection
+mongosh "your-mongodb-connection-string"
+
+# Check network access from EKS cluster
 ```
 
 ## 💰 Payment Processing
@@ -227,6 +334,11 @@ To integrate with real payment providers:
 - Implement webhook signature verification
 - Use HTTPS for webhook endpoints
 - Validate webhook payloads
+
+### Kubernetes Security
+- MongoDB connection string stored in Kubernetes secrets
+- Network policies should be configured for production
+- Consider using AWS IAM roles for EKS
 
 ## 📊 Payment Analytics
 

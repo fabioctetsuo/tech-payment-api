@@ -1,0 +1,216 @@
+name: Manual Deploy to AWS
+
+on:
+  workflow_dispatch:
+    inputs:
+      docker_image:
+        description: 'Docker image to deploy (e.g., username/tech-payment-api:latest)'
+        required: true
+        default: '${{ github.repository }}:latest'
+        type: string
+      mongodb_uri:
+        description: 'MongoDB URI (optional - will use GitHub secret if not provided)'
+        required: false
+        type: string
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+      namespace:
+        description: 'Kubernetes namespace'
+        required: true
+        default: 'payments-service'
+        type: string
+      replicas:
+        description: 'Number of replicas'
+        required: false
+        default: '2'
+        type: string
+
+env:
+  REGISTRY: docker.io
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+        aws-region: us-east-1
+        
+    - name: Update kube config
+      run: aws eks update-kubeconfig --region us-east-1 --name tech_challenge_cluster
+      
+    - name: Verify cluster access
+      run: |
+        kubectl cluster-info
+        kubectl get nodes
+        
+    - name: Create or update namespace
+      run: |
+        kubectl create namespace ${{ inputs.namespace }} --dry-run=client -o yaml | kubectl apply -f -
+        
+    - name: Create or update ConfigMap
+      run: |
+        cat <<EOF | kubectl apply -f -
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: tech-payment-api-config
+          namespace: ${{ inputs.namespace }}
+        data:
+          NODE_ENV: "${{ inputs.environment }}"
+          SERVICE_PORT: "3003"
+        EOF
+        
+    - name: Get external service URLs
+      id: service-urls
+      run: |
+        # Get MOCK_PAYMENT_SERVICE_URL from LoadBalancer
+        MOCK_PAYMENT_EXTERNAL_IP=$(kubectl get svc pagamento-mock-service-loadbalancer -n pagamento-mock-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
+        
+        if [ -n "$MOCK_PAYMENT_EXTERNAL_IP" ]; then
+          MOCK_PAYMENT_SERVICE_URL="http://${MOCK_PAYMENT_EXTERNAL_IP}:4000"
+          echo "mock_payment_service_url=$MOCK_PAYMENT_SERVICE_URL" >> $GITHUB_OUTPUT
+          echo "✅ Mock Payment Service URL retrieved: $MOCK_PAYMENT_SERVICE_URL"
+        else
+          MOCK_PAYMENT_SERVICE_URL="http://pagamento-mock-service-loadbalancer.pagamento-mock-service.svc.cluster.local:4000"
+          echo "mock_payment_service_url=$MOCK_PAYMENT_SERVICE_URL" >> $GITHUB_OUTPUT
+          echo "⚠️  Using fallback Mock Payment Service URL: $MOCK_PAYMENT_SERVICE_URL"
+        fi
+        
+        # Get ORDER_API_URL from LoadBalancer
+        ORDER_EXTERNAL_IP=$(kubectl get svc orders-service-loadbalancer -n orders-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
+        
+        if [ -n "$ORDER_EXTERNAL_IP" ]; then
+          ORDER_API_URL="http://${ORDER_EXTERNAL_IP}:3000"
+          echo "order_api_url=$ORDER_API_URL" >> $GITHUB_OUTPUT
+          echo "✅ Order API URL retrieved: $ORDER_API_URL"
+        else
+          ORDER_API_URL="http://orders-service-loadbalancer.orders-service.svc.cluster.local:3000"
+          echo "order_api_url=$ORDER_API_URL" >> $GITHUB_OUTPUT
+          echo "⚠️  Using fallback Order API URL: $ORDER_API_URL"
+        fi
+        
+    - name: Create or update Secret
+      run: |
+        # Use provided MongoDB URI or GitHub secret
+        MONGODB_URI="${{ inputs.mongodb_uri || secrets.MONGODB_URI }}"
+        
+        if [ -z "$MONGODB_URI" ]; then
+          echo "❌ MongoDB URI not provided and MONGODB_URI secret not set!"
+          echo "Please provide a MongoDB URI in the workflow input or set the MONGODB_URI secret in your GitHub repository."
+          exit 1
+        fi
+        
+        kubectl create secret generic tech-payment-api-secret \
+          --from-literal=MONGODB_URI="$MONGODB_URI" \
+          --from-literal=MOCK_PAYMENT_SERVICE_URL="${{ steps.service-urls.outputs.mock_payment_service_url }}" \
+          --from-literal=ORDER_API_URL="${{ steps.service-urls.outputs.order_api_url }}" \
+          --namespace=${{ inputs.namespace }} \
+          --dry-run=client -o yaml | kubectl apply -f -
+          
+    - name: Generate Kubernetes manifests
+      run: |
+        # Set environment variables for template substitution
+        export DOCKER_IMAGE="${{ inputs.docker_image }}"
+        export SERVICE_NAME="tech-payment-api"
+        export SERVICE_PORT="3003"
+        export NAMESPACE="${{ inputs.namespace }}"
+        export DOMAIN_NAME="tech-challenge.local"
+        export REPLICAS="${{ inputs.replicas }}"
+        
+        # Generate manifests
+        envsubst < k8s/deployment.yaml.template > k8s/deployment-generated.yaml
+        envsubst < k8s/service.yaml.template > k8s/service-generated.yaml
+        
+        # Update replicas in deployment
+        sed -i "s/replicas: 2/replicas: ${{ inputs.replicas }}/" k8s/deployment-generated.yaml
+        
+        # Verify generated manifests
+        echo "Generated deployment manifest:"
+        cat k8s/deployment-generated.yaml
+        
+    - name: Deploy application
+      run: |
+        # Apply all manifests
+        kubectl apply -f k8s/deployment-generated.yaml
+        kubectl apply -f k8s/service-generated.yaml
+        kubectl apply -f k8s/hpa.yaml
+        
+        # Wait for deployment to be ready
+        echo "Waiting for deployment to be ready..."
+        kubectl rollout status deployment/tech-payment-api -n ${{ inputs.namespace }} --timeout=300s
+        
+    - name: Verify deployment
+      run: |
+        echo "Checking deployment status..."
+        kubectl get pods -n ${{ inputs.namespace }}
+        kubectl get services -n ${{ inputs.namespace }}
+        
+    - name: Get service URL
+      id: service-url
+      run: |
+        # Wait a bit for LoadBalancer to be ready
+        sleep 30
+        
+        # Get the LoadBalancer service hostname
+        SERVICE_HOST=$(kubectl get svc payments-service-loadbalancer -n ${{ inputs.namespace }} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
+        
+        if [ -n "$SERVICE_HOST" ]; then
+          echo "service_url=http://$SERVICE_HOST:3003" >> $GITHUB_OUTPUT
+          echo "Service URL: http://$SERVICE_HOST:3003"
+        else
+          echo "service_url=Not available yet" >> $GITHUB_OUTPUT
+          echo "Service URL not available yet"
+        fi
+        
+    - name: Health check
+      run: |
+        SERVICE_URL="${{ steps.service-url.outputs.service_url }}"
+        
+        if [ "$SERVICE_URL" != "Not available yet" ]; then
+          echo "Performing health check..."
+          
+          # Wait a bit more for the service to be fully ready
+          sleep 30
+          
+          # Try health check
+          if curl -f -s "$SERVICE_URL/health" > /dev/null; then
+            echo "✅ Service is healthy"
+          else
+            echo "⚠️  Health check failed, but deployment completed"
+          fi
+        else
+          echo "⚠️  Skipping health check - service URL not available"
+        fi
+        
+    - name: Deployment summary
+      run: |
+        echo "## 🎉 Deployment Complete!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Deployment Details:**" >> $GITHUB_STEP_SUMMARY
+        echo "- **Image:** ${{ inputs.docker_image }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Environment:** ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Namespace:** ${{ inputs.namespace }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Replicas:** ${{ inputs.replicas }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Service URL:** ${{ steps.service-url.outputs.service_url }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Useful Commands:**" >> $GITHUB_STEP_SUMMARY
+        echo "```bash" >> $GITHUB_STEP_SUMMARY
+        echo "kubectl get pods -n ${{ inputs.namespace }}" >> $GITHUB_STEP_SUMMARY
+        echo "kubectl logs -f deployment/tech-payment-api -n ${{ inputs.namespace }}" >> $GITHUB_STEP_SUMMARY
+        echo "kubectl describe ingress tech-payment-api-ingress -n ${{ inputs.namespace }}" >> $GITHUB_STEP_SUMMARY
+        echo "```" >> $GITHUB_STEP_SUMMARY 
