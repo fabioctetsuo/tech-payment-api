@@ -102,7 +102,7 @@ Set these secrets in your GitHub repository settings:
 
 The workflows deploy the following Kubernetes resources:
 
-- **Namespace:** `payments-service`
+- **Namespace:** `payment-service`
 - **ConfigMap:** `tech-payment-api-config`
 - **Secret:** `tech-payment-api-secret` (contains MongoDB URI)
 - **Deployment:** `tech-payment-api`
@@ -130,19 +130,19 @@ The workflows deploy the following Kubernetes resources:
 
 ```bash
 # Check pod status
-kubectl get pods -n payments-service
+kubectl get pods -n payment-service
 
 # Check pod logs
-kubectl logs -f deployment/tech-payment-api -n payments-service
+kubectl logs -f deployment/tech-payment-api -n payment-service
 
 # Check service status
-kubectl get services -n payments-service
+kubectl get services -n payment-service
 
 # Check deployment status
-kubectl describe deployment tech-payment-api -n payments-service
+kubectl describe deployment tech-payment-api -n payment-service
 
 # Check events
-kubectl get events -n payments-service --sort-by='.lastTimestamp'
+kubectl get events -n payment-service --sort-by='.lastTimestamp'
 ```
 
 ## Security Notes

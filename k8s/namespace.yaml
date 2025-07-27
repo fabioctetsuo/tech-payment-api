@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: payments-service
+  name: payment-service
   labels:
-    name: payments-service
+    name: payment-service
     environment: production 

@@ -171,7 +171,7 @@ chmod +x scripts/set-github-secrets.sh
 
 ### Kubernetes Deployment
 
-The service is deployed to the `payments-service` namespace in AWS EKS.
+The service is deployed to the `payment-service` namespace in AWS EKS.
 
 #### Manual Deployment
 
@@ -185,7 +185,7 @@ The service is deployed to the `payments-service` namespace in AWS EKS.
 
 #### Kubernetes Resources
 
-- **Namespace**: `payments-service`
+- **Namespace**: `payment-service`
 - **Deployment**: `tech-payment-api`
 - **Service**: `tech-payment-api-service`
 - **HPA**: `tech-payment-api-hpa`
@@ -196,16 +196,16 @@ The service is deployed to the `payments-service` namespace in AWS EKS.
 
 ```bash
 # Check pod status
-kubectl get pods -n payments-service
+kubectl get pods -n payment-service
 
 # View logs
-kubectl logs -f deployment/tech-payment-api -n payments-service
+kubectl logs -f deployment/tech-payment-api -n payment-service
 
 # Check service status
-kubectl get services -n payments-service
+kubectl get services -n payment-service
 
 # Check HPA status
-kubectl get hpa -n payments-service
+kubectl get hpa -n payment-service
 ```
 
 ## 🛠️ Development
@@ -263,7 +263,7 @@ docker run -p 3002:3002 -e MONGODB_URI="your-mongodb-uri" tech-payment-api:dev
 
 - **Health Check**: `/health`
 - **Logs**: `docker-compose logs -f payment-api`
-- **Kubernetes**: `kubectl logs -f deployment/tech-payment-api -n payments-service`
+- **Kubernetes**: `kubectl logs -f deployment/tech-payment-api -n payment-service`
 
 ## 🚨 Troubleshooting
 
@@ -279,16 +279,16 @@ docker-compose logs payment-api
 ### Kubernetes Deployment Issues
 ```bash
 # Check pod status
-kubectl get pods -n payments-service
+kubectl get pods -n payment-service
 
 # Check pod logs
-kubectl logs <pod-name> -n payments-service
+kubectl logs <pod-name> -n payment-service
 
 # Check events
-kubectl get events -n payments-service --sort-by='.lastTimestamp'
+kubectl get events -n payment-service --sort-by='.lastTimestamp'
 
 # Check secret
-kubectl get secret tech-payment-api-secret -n payments-service -o yaml
+kubectl get secret tech-payment-api-secret -n payment-service -o yaml
 ```
 
 ### MongoDB Connection Issues

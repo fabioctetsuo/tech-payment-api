@@ -49,7 +49,7 @@ print_success "Connected to Kubernetes cluster"
 
 # Get MOCK_PAYMENT_SERVICE_URL from LoadBalancer
 print_status "Getting MOCK_PAYMENT_SERVICE_URL..."
-MOCK_PAYMENT_EXTERNAL_IP=$(kubectl get svc pagamento-mock-service-loadbalancer -n pagamento-mock-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
+MOCK_PAYMENT_EXTERNAL_IP=$(kubectl get svc payment-mock-service-loadbalancer -n payment-mock-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
 
 if [ -n "$MOCK_PAYMENT_EXTERNAL_IP" ]; then
     MOCK_PAYMENT_SERVICE_URL="http://${MOCK_PAYMENT_EXTERNAL_IP}:4000"
@@ -57,7 +57,7 @@ if [ -n "$MOCK_PAYMENT_EXTERNAL_IP" ]; then
 else
     print_warning "⚠️  Mock Payment service LoadBalancer external IP not available yet"
     print_warning "The service might still be provisioning. Using internal service URL as fallback."
-    MOCK_PAYMENT_SERVICE_URL="http://pagamento-mock-service-loadbalancer.pagamento-mock-service.svc.cluster.local:4000"
+    MOCK_PAYMENT_SERVICE_URL="http://payment-mock-service-loadbalancer.payment-mock-service.svc.cluster.local:4000"
     print_status "Fallback Mock Payment Service URL: $MOCK_PAYMENT_SERVICE_URL"
 fi
 

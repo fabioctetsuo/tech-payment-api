@@ -6,7 +6,7 @@ This directory contains Kubernetes manifests for deploying the Tech Payment API 
 
 ### Core Resources
 
-- **`namespace.yaml`**: Creates the `payments-service` namespace
+- **`namespace.yaml`**: Creates the `payment-service` namespace
 - **`configmap.yaml`**: Configuration for the application
 - **`deployment.yaml.template`**: Deployment template (uses environment variables)
 - **`service.yaml.template`**: Service template (uses environment variables)
@@ -32,7 +32,7 @@ To deploy manually:
 export DOCKER_IMAGE="your-dockerhub-username/tech-payment-api:latest"
 export SERVICE_NAME="tech-payment-api"
 export SERVICE_PORT="3002"
-export NAMESPACE="payments-service"
+export NAMESPACE="payment-service"
 export DOMAIN_NAME="tech-challenge.local"
 
 # Generate manifests from templates
@@ -49,7 +49,7 @@ kubectl apply -f k8s/hpa.yaml
 # Create secret (replace with your MongoDB URI)
 kubectl create secret generic tech-payment-api-secret \
   --from-literal=MONGODB_URI="your-mongodb-connection-string" \
-  --namespace=payments-service
+  --namespace=payment-service
 ```
 
 ## Configuration
@@ -93,7 +93,7 @@ The application uses the following environment variables:
 
 ### Load Balancer (if configured)
 
-- **Name**: `payments-service-loadbalancer`
+- **Name**: `payment-service-loadbalancer`
 - **Type**: LoadBalancer
 - **Port**: 3002
 
@@ -110,23 +110,23 @@ curl http://localhost:3002/health
 
 ```bash
 # Check pod status
-kubectl get pods -n payments-service
+kubectl get pods -n payment-service
 
 # Check service status
-kubectl get services -n payments-service
+kubectl get services -n payment-service
 
 # Check deployment status
-kubectl get deployments -n payments-service
+kubectl get deployments -n payment-service
 
 # Check HPA status
-kubectl get hpa -n payments-service
+kubectl get hpa -n payment-service
 
 # View logs
-kubectl logs -f deployment/tech-payment-api -n payments-service
+kubectl logs -f deployment/tech-payment-api -n payment-service
 
 # Describe resources
-kubectl describe deployment tech-payment-api -n payments-service
-kubectl describe service tech-payment-api-service -n payments-service
+kubectl describe deployment tech-payment-api -n payment-service
+kubectl describe service tech-payment-api-service -n payment-service
 ```
 
 ## Troubleshooting
@@ -152,25 +152,25 @@ kubectl describe service tech-payment-api-service -n payments-service
 
 1. **Check Pod Status**
    ```bash
-   kubectl get pods -n payments-service
-   kubectl describe pod <pod-name> -n payments-service
+   kubectl get pods -n payment-service
+   kubectl describe pod <pod-name> -n payment-service
    ```
 
 2. **Check Logs**
    ```bash
-   kubectl logs <pod-name> -n payments-service
-   kubectl logs -f deployment/tech-payment-api -n payments-service
+   kubectl logs <pod-name> -n payment-service
+   kubectl logs -f deployment/tech-payment-api -n payment-service
    ```
 
 3. **Check Events**
    ```bash
-   kubectl get events -n payments-service --sort-by='.lastTimestamp'
+   kubectl get events -n payment-service --sort-by='.lastTimestamp'
    ```
 
 4. **Check Configuration**
    ```bash
-   kubectl get configmap tech-payment-api-config -n payments-service -o yaml
-   kubectl get secret tech-payment-api-secret -n payments-service -o yaml
+   kubectl get configmap tech-payment-api-config -n payment-service -o yaml
+   kubectl get secret tech-payment-api-secret -n payment-service -o yaml
    ```
 
 ## Security

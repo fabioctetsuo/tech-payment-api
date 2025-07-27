@@ -99,14 +99,14 @@ jobs:
       id: service-urls
       run: |
         # Get MOCK_PAYMENT_SERVICE_URL from LoadBalancer
-        MOCK_PAYMENT_EXTERNAL_IP=$(kubectl get svc pagamento-mock-service-loadbalancer -n pagamento-mock-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
+        MOCK_PAYMENT_EXTERNAL_IP=$(kubectl get svc payment-mock-service-loadbalancer -n payment-mock-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
         
         if [ -n "$MOCK_PAYMENT_EXTERNAL_IP" ]; then
           MOCK_PAYMENT_SERVICE_URL="http://${MOCK_PAYMENT_EXTERNAL_IP}:4000"
           echo "mock_payment_service_url=$MOCK_PAYMENT_SERVICE_URL" >> $GITHUB_OUTPUT
           echo "✅ Mock Payment Service URL retrieved: $MOCK_PAYMENT_SERVICE_URL"
         else
-          MOCK_PAYMENT_SERVICE_URL="http://pagamento-mock-service-loadbalancer.pagamento-mock-service.svc.cluster.local:4000"
+          MOCK_PAYMENT_SERVICE_URL="http://payment-mock-service-loadbalancer.payment-mock-service.svc.cluster.local:4000"
           echo "mock_payment_service_url=$MOCK_PAYMENT_SERVICE_URL" >> $GITHUB_OUTPUT
           echo "⚠️  Using fallback Mock Payment Service URL: $MOCK_PAYMENT_SERVICE_URL"
         fi
@@ -138,7 +138,7 @@ jobs:
           --from-literal=MONGODB_URI="${{ secrets.MONGODB_URI }}" \
           --from-literal=MOCK_PAYMENT_SERVICE_URL="${{ steps.service-urls.outputs.mock_payment_service_url }}" \
           --from-literal=ORDER_API_URL="${{ steps.service-urls.outputs.order_api_url }}" \
-          --namespace=payments-service \
+          --namespace=payment-service \
           --dry-run=client -o yaml | kubectl apply -f -
         
         kubectl apply -f k8s/configmap.yaml
@@ -147,10 +147,10 @@ jobs:
         kubectl apply -f k8s/hpa.yaml
         
         # Wait for deployment to be ready
-        kubectl rollout status deployment/tech-payment-api -n payments-service --timeout=300s
+        kubectl rollout status deployment/tech-payment-api -n payment-service --timeout=300s
       env:
         DOCKER_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
         SERVICE_NAME: tech-payment-api
         SERVICE_PORT: "3003"
-        NAMESPACE: payments-service
+        NAMESPACE: payment-service
         DOMAIN_NAME: tech-challenge.local 

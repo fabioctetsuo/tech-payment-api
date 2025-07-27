@@ -14,7 +14,7 @@ NC='\033[0m' # No Color
 
 # Default values
 DOCKER_IMAGE=""
-NAMESPACE="payments-service"
+NAMESPACE="payment-service"
 REPLICAS="2"
 ENVIRONMENT="production"
 MONGODB_URI=""
@@ -42,7 +42,7 @@ show_usage() {
     echo ""
     echo "Options:"
     echo "  -i, --image IMAGE       Docker image to deploy (required)"
-    echo "  -n, --namespace NS      Kubernetes namespace (default: payments-service)"
+    echo "  -n, --namespace NS      Kubernetes namespace (default: payment-service)"
     echo "  -r, --replicas NUM      Number of replicas (default: 2)"
     echo "  -e, --environment ENV   Environment (default: production)"
     echo "  -m, --mongodb-uri URI   MongoDB URI (optional, uses GitHub secret if not provided)"
@@ -140,7 +140,7 @@ if [ -z "$MOCK_PAYMENT_SERVICE_URL" ]; then
     print_status "MOCK_PAYMENT_SERVICE_URL not provided, attempting to get it from LoadBalancer service..."
     
     # Get the external IP from the pagamento-mock service LoadBalancer
-    MOCK_PAYMENT_EXTERNAL_IP=$(kubectl get svc pagamento-mock-service-loadbalancer -n pagamento-mock-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
+    MOCK_PAYMENT_EXTERNAL_IP=$(kubectl get svc payment-mock-service-loadbalancer -n payment-mock-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
     
     if [ -n "$MOCK_PAYMENT_EXTERNAL_IP" ]; then
         MOCK_PAYMENT_SERVICE_URL="http://${MOCK_PAYMENT_EXTERNAL_IP}:4000"
@@ -149,7 +149,7 @@ if [ -z "$MOCK_PAYMENT_SERVICE_URL" ]; then
     else
         print_warning "⚠️  Mock Payment service LoadBalancer external IP not available yet"
         print_warning "The service might still be provisioning. Using internal service URL as fallback."
-        MOCK_PAYMENT_SERVICE_URL="http://pagamento-mock-service-loadbalancer.pagamento-mock-service.svc.cluster.local:4000"
+        MOCK_PAYMENT_SERVICE_URL="http://payment-mock-service-loadbalancer.payment-mock-service.svc.cluster.local:4000"
         export MOCK_PAYMENT_SERVICE_URL
     fi
 fi
@@ -247,7 +247,7 @@ kubectl get services -n "$NAMESPACE"
 
 # Get service URL if LoadBalancer is configured
 print_status "Checking service URL..."
-SERVICE_HOST=$(kubectl get svc payments-service-loadbalancer -n "$NAMESPACE" -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
+SERVICE_HOST=$(kubectl get svc payment-service-loadbalancer -n "$NAMESPACE" -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
 
 if [ -n "$SERVICE_HOST" ]; then
     print_success "Service URL: http://$SERVICE_HOST:3003"
