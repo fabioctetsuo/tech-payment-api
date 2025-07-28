@@ -9,7 +9,7 @@ export class OrderService {
   constructor(private readonly httpService: HttpService) {}
 
   async confirmOrder(orderId: string): Promise<void> {
-    const orderApiUrl = process.env.ORDER_API_URL || 'http://localhost:3001';
+    const orderApiUrl = process.env.ORDER_API_URL || 'http://localhost:3002';
     const confirmUrl = `${orderApiUrl}/pedidos/${orderId}/confirmar`;
 
     this.logger.log(`Confirmando pedido ${orderId} via API: ${confirmUrl}`);

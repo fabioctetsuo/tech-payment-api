@@ -115,11 +115,11 @@ jobs:
         ORDER_EXTERNAL_IP=$(kubectl get svc orders-service-loadbalancer -n orders-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
         
         if [ -n "$ORDER_EXTERNAL_IP" ]; then
-          ORDER_API_URL="http://${ORDER_EXTERNAL_IP}:3001"
+          ORDER_API_URL="http://${ORDER_EXTERNAL_IP}:3002"
           echo "order_api_url=$ORDER_API_URL" >> $GITHUB_OUTPUT
           echo "✅ Order API URL retrieved: $ORDER_API_URL"
         else
-          ORDER_API_URL="http://orders-service-loadbalancer.orders-service.svc.cluster.local:3001"
+          ORDER_API_URL="http://orders-service-loadbalancer.orders-service.svc.cluster.local:3002"
           echo "order_api_url=$ORDER_API_URL" >> $GITHUB_OUTPUT
           echo "⚠️  Using fallback Order API URL: $ORDER_API_URL"
         fi

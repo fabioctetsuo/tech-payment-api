@@ -162,13 +162,13 @@ if [ -z "$ORDER_API_URL" ]; then
     ORDER_EXTERNAL_IP=$(kubectl get svc orders-service-loadbalancer -n orders-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
     
     if [ -n "$ORDER_EXTERNAL_IP" ]; then
-        ORDER_API_URL="http://${ORDER_EXTERNAL_IP}:3001"
+        ORDER_API_URL="http://${ORDER_EXTERNAL_IP}:3002"
         print_status "✅ Order API URL retrieved from LoadBalancer: $ORDER_API_URL"
         export ORDER_API_URL
     else
         print_warning "⚠️  Order service LoadBalancer external IP not available yet"
         print_warning "The service might still be provisioning. Using internal service URL as fallback."
-        ORDER_API_URL="http://orders-service-loadbalancer.orders-service.svc.cluster.local:3001"
+        ORDER_API_URL="http://orders-service-loadbalancer.orders-service.svc.cluster.local:3002"
         export ORDER_API_URL
     fi
 fi
