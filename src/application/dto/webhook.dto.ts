@@ -40,4 +40,4 @@ export class WebhookPagamentoDto {
   @IsNumber()
   @IsNotEmpty()
   valor: number;
-} 
+}

@@ -9,7 +9,7 @@ import { PaymentStatus } from '../../domain/pagamento/pagamento.types';
 @Controller('webhooks')
 export class WebhookController {
   private readonly logger = new Logger(WebhookController.name);
-  
+
   constructor(
     private pagamentoService: PagamentoService,
     private orderService: OrderService,
@@ -40,7 +40,7 @@ export class WebhookController {
         this.logger.log(
           `Pagamento aprovado, confirmando pedido ${webhookData.pedido_id}`,
         );
-        
+
         try {
           await this.orderService.confirmOrder(webhookData.pedido_id);
           this.logger.log(
@@ -48,7 +48,7 @@ export class WebhookController {
           );
         } catch (orderError) {
           this.logger.error(
-            `Erro ao confirmar pedido ${webhookData.pedido_id}: ${orderError.message}`,
+            `Erro ao confirmar pedido ${webhookData.pedido_id}: ${orderError instanceof Error ? orderError.message : String(orderError)}`,
           );
           // Don't fail the webhook if order confirmation fails
           // The payment status is already updated
@@ -62,9 +62,9 @@ export class WebhookController {
       };
     } catch (error) {
       this.logger.error(
-        `Erro ao atualizar status do pagamento ${webhookData.id}: ${error.message}`,
+        `Erro ao atualizar status do pagamento ${webhookData.id}: ${error instanceof Error ? error.message : String(error)}`,
       );
       throw error;
     }
   }
-} 
+}

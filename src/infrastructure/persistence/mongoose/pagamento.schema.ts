@@ -19,4 +19,4 @@ export class Pagamento {
   valor: number;
 }
 
-export const PagamentoSchema = SchemaFactory.createForClass(Pagamento); 
+export const PagamentoSchema = SchemaFactory.createForClass(Pagamento);
