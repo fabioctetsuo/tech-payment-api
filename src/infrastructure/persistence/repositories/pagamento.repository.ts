@@ -7,7 +7,8 @@ import { Pagamento as PagamentoEntity } from '../../../domain/pagamento/pagament
 @Injectable()
 export class PagamentoRepository {
   constructor(
-    @InjectModel(Pagamento.name) private pagamentoModel: Model<PagamentoDocument>
+    @InjectModel(Pagamento.name)
+    private pagamentoModel: Model<PagamentoDocument>,
   ) {}
 
   async save(pagamento: PagamentoEntity): Promise<PagamentoEntity> {
@@ -21,14 +22,17 @@ export class PagamentoRepository {
     return this.mapToEntity(saved);
   }
 
-  async update(id: string, pagamento: PagamentoEntity): Promise<PagamentoEntity> {
+  async update(
+    id: string,
+    pagamento: PagamentoEntity,
+  ): Promise<PagamentoEntity> {
     const updated = await this.pagamentoModel.findByIdAndUpdate(
       id,
       {
         status: pagamento.status,
         valor: pagamento.valor,
       },
-      { new: true }
+      { new: true },
     );
     return this.mapToEntity(updated);
   }
@@ -45,19 +49,21 @@ export class PagamentoRepository {
 
   async findAll(): Promise<PagamentoEntity[]> {
     const found = await this.pagamentoModel.find();
-    return found.map(doc => this.mapToEntity(doc));
+    return found.map((doc) => this.mapToEntity(doc));
   }
 
   private mapToEntity(doc: PagamentoDocument): PagamentoEntity {
-    const docAny = doc as any;
     return new PagamentoEntity({
-      id: doc._id.toString(),
+      // eslint-disable-next-line @typescript-eslint/no-base-to-string
+      id: doc._id ? doc._id.toString() : '',
       pedido_id: doc.pedido_id,
       cliente_id: doc.cliente_id,
       status: doc.status,
       valor: doc.valor,
-      created_at: docAny.createdAt,
-      updated_at: docAny.updatedAt,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      created_at: (doc as any).createdAt as Date,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      updated_at: (doc as any).updatedAt as Date,
     });
   }
 }

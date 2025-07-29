@@ -19,7 +19,10 @@ export class PagamentoController {
     description: 'Serviço de pagamento indisponível',
   })
   async create(@Body() createPagamentoDto: CreatePagamentoDto) {
-    this.logger.log('Iniciando fluxo de pagamento do pedido: create', createPagamentoDto);
+    this.logger.log(
+      'Iniciando fluxo de pagamento do pedido: create',
+      createPagamentoDto,
+    );
     return this.pagamentoService.create(createPagamentoDto);
   }
 

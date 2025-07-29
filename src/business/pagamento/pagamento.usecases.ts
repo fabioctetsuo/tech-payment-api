@@ -45,7 +45,7 @@ export class PagamentoUseCases {
 
   async updateStatus(pagamentoId: string, status: PaymentStatus) {
     const pagamento = await this.pagamentoRepository.findById(pagamentoId);
-    
+
     if (!pagamento) {
       throw new Error(`Pagamento com ID ${pagamentoId} não encontrado`);
     }

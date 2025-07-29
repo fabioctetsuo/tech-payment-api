@@ -16,22 +16,26 @@ export class OrderService {
 
     try {
       const response = await firstValueFrom(
-        this.httpService.put(confirmUrl, {}, {
-          headers: {
-            'Content-Type': 'application/json',
+        this.httpService.put(
+          confirmUrl,
+          {},
+          {
+            headers: {
+              'Content-Type': 'application/json',
+            },
           },
-        })
+        ),
       );
 
       this.logger.log(`Pedido ${orderId} confirmado com sucesso`);
     } catch (error) {
       this.logger.error(
-        `Erro ao confirmar pedido ${orderId}: ${error.message}`,
+        `Erro ao confirmar pedido ${orderId}: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
       );
-      
+
       // Re-throw the error so the webhook can handle it appropriately
       throw error;
     }
   }
-} 
+}
